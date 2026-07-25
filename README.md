@@ -168,6 +168,12 @@ riddle`. No topic model, just log-odds against the rest of the series.
 cluster with a character. Wrong in a charming way, and exactly the kind of artefact
 an honest unsupervised method produces.
 
+**The tool notices Sirius Black before the story does.** The presence timeline in
+the web UI marks every character's first appearance, and it puts Sirius at book
+one, chapter one - a passing name-drop as the owner of the motorbike Hagrid
+borrows, two full books before he becomes a character. Mentions per chapter across
+all 198 chapters also make absences and returns visible at a glance.
+
 **The tension arcs find the climaxes, mostly.** `potter arc --axis tension` names a
 peak chapter for each book, and in five of seven it is the chapter a reader would
 call the climax: The Heir of Slytherin, The Third Task, The Only One He Ever Feared,
