@@ -1,5 +1,11 @@
+# The corpus itself is never committed. See README, "Corpus and copyright".
+data/
+
 .venv/
 __pycache__/
 *.pyc
 .env
 .pytest_cache/
+*.egg-info/
+build/
+dist/
