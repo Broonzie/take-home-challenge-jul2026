@@ -4,7 +4,7 @@ A pipeline that turns seven plain-text novels into a queryable model of the corp
 and an interactive tool for exploring it. Built for the Simply TV 90 minute coding
 challenge.
 
-**Video demo:** https://www.loom.com/share/8e7a298a6e5446009dbcc78b48e07e84
+**Video demo:** https://www.loom.com/share/6588b12c37a04feaaad2c28763156b5f
 
 Word frequency is not the interesting part of a 1.1 million word narrative corpus.
 Structure is. Who exists, who interacts with whom, how the vocabulary shifts between
