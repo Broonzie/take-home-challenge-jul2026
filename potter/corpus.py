@@ -246,7 +246,9 @@ def _parse_units(text: str) -> list[_Unit]:
     return units
 
 
-def _group_into_books(units: list[_Unit], fallback_title: str, start_index: int) -> list[Book]:
+def _group_into_books(
+    units: list[_Unit], fallback_title: str, start_index: int, titles: list[str] | None = None
+) -> list[Book]:
     """Group chapter units into books, splitting where the chapter ordinal resets."""
     groups: list[list[_Unit]] = []
     current: list[_Unit] = []
@@ -273,7 +275,7 @@ def _group_into_books(units: list[_Unit], fallback_title: str, start_index: int)
     multi = len(groups) > 1
     for offset, group in enumerate(groups):
         index = start_index + offset
-        title = _book_title(group, fallback_title, index) if multi else fallback_title
+        title = _book_title(fallback_title, index, titles or []) if multi else fallback_title
         book = Book(title=title, index=index)
         for unit in group:
             chapter_no = unit.ordinal if unit.ordinal is not None else 0
@@ -296,27 +298,31 @@ def _group_into_books(units: list[_Unit], fallback_title: str, start_index: int)
     return books
 
 
-def _book_title(group: list[_Unit], fallback: str, index: int) -> str:
-    """Name a book from its front matter, else fall back to an ordinal label.
+def _series_titles(raw_dir: Path) -> list[str]:
+    """Optional volume titles, one per line, from data/raw/titles.txt.
 
-    In a single-file series the volume title usually sits in the front matter just
-    before chapter one, so we take the last short front-matter line.
+    When a series arrives as one file, the volume titles are usually not recoverable
+    from the text: what sits before chapter one is a table of contents, and guessing
+    from it yields a chapter title masquerading as a book title. Rather than guess
+    wrongly, we accept an explicit manifest and otherwise label books by ordinal.
     """
-    front = group[0].paragraphs if group and group[0].ordinal is None else []
-    for para in reversed(front[-6:]):
-        candidate = para.strip(" *#-")
-        if 3 <= len(candidate) <= 70 and re.search(r"[A-Za-z]{3}", candidate):
-            words = candidate.split()
-            if len(words) <= 12 and not candidate.endswith((".", ",", "!", "?", '"')):
-                return candidate.title() if candidate.isupper() else candidate
-    return f"{fallback} - Book {index}"
+    manifest = raw_dir / "titles.txt"
+    if not manifest.exists():
+        return []
+    return [ln.strip() for ln in manifest.read_text(encoding="utf-8").splitlines() if ln.strip()]
 
 
-def load_source(path: Path, start_index: int) -> list[Book]:
+def _book_title(fallback: str, index: int, titles: list[str]) -> str:
+    if 0 < index <= len(titles):
+        return titles[index - 1]
+    return f"Book {index}"
+
+
+def load_source(path: Path, start_index: int, titles: list[str] | None = None) -> list[Book]:
     """Parse one file into one or more books."""
     text = _normalise(path.read_text(encoding="utf-8", errors="replace"))
     units = _parse_units(text)
-    return _group_into_books(units, _clean_title(path), start_index)
+    return _group_into_books(units, _clean_title(path), start_index, titles)
 
 
 def load_corpus(raw_dir: Path | None = None) -> list[Book]:
@@ -328,9 +334,10 @@ def load_corpus(raw_dir: Path | None = None) -> list[Book]:
             f"No .txt files found in {raw_dir}. Drop your .txt files there and re-run "
             "`potter build` (see README, 'Corpus and copyright')."
         )
+    titles = _series_titles(raw_dir)
     books: list[Book] = []
     for path in paths:
-        books.extend(load_source(path, start_index=len(books) + 1))
+        books.extend(load_source(path, start_index=len(books) + 1, titles=titles))
     return books
 
 

@@ -45,7 +45,27 @@ STRUCTURAL_STOPS = {
     "on", "in", "to", "of", "by", "up", "or", "an", "a", "his", "her", "my", "your",
 }
 
+# Reported-speech verbs. The discriminator for person-vs-place: a castle never
+# says anything, so adjacency to one of these is strong evidence of a speaker.
+SPEECH_VERBS = {
+    "said", "asked", "replied", "shouted", "whispered", "muttered", "yelled", "cried",
+    "murmured", "added", "answered", "called", "screamed", "hissed", "growled",
+    "snapped", "gasped", "breathed", "told", "repeated", "continued", "agreed",
+    "admitted", "announced", "demanded", "explained", "groaned", "grinned", "laughed",
+    "sighed", "spoke", "stammered", "suggested", "warned", "sobbed", "roared",
+    "barked", "sneered", "squeaked", "bellowed", "insisted", "interrupted", "urged",
+    "stuttered", "spluttered", "chuckled", "snarled", "pleaded", "protested",
+    "corrected", "confessed", "concluded", "observed", "remarked", "recited",
+}
+# Deliberately excludes generic action verbs (looked, turned, walked). Including
+# them collapses the discriminator: "Gryffindor Tower looked..." reads as a speaker.
+
 TOKEN_RE = re.compile(r"[A-Za-z][A-Za-z'\-]*")
+
+_VERBS_ALT = "|".join(sorted(SPEECH_VERBS))
+# "Harry said" and "said Harry" - both orders occur in English narration.
+NAME_THEN_VERB_RE = re.compile(rf"\b([A-Z][a-z'\-]+)\s+(?:{_VERBS_ALT})\b")
+VERB_THEN_NAME_RE = re.compile(rf"\b(?:{_VERBS_ALT})\s+([A-Z][a-z'\-]+)\b")
 # A capitalised run, optionally linked by lowercase particles (van, de, of, the).
 NAME_RUN_RE = re.compile(
     r"\b((?:[A-Z][a-z'\-]+)(?:\s+(?:of|the|de|van|von|le|la)\s+[A-Z][a-z'\-]+|\s+[A-Z][a-z'\-]+){0,3})\b"
@@ -91,6 +111,17 @@ def _lowercase_profile(passages: list[Passage]) -> Counter:
     return lower
 
 
+def _person_evidence(passages: list[Passage]) -> Counter:
+    """Count, per capitalised head token, how often it sits next to a speech verb."""
+    evidence: Counter = Counter()
+    for p in passages:
+        for match in NAME_THEN_VERB_RE.finditer(p.text):
+            evidence[match.group(1).lower()] += 1
+        for match in VERB_THEN_NAME_RE.finditer(p.text):
+            evidence[match.group(1).lower()] += 1
+    return evidence
+
+
 def _candidate_counts(passages: list[Passage]) -> Counter:
     counts = Counter()
     for p in passages:
@@ -108,12 +139,44 @@ def _strip_honorific(surface: str) -> tuple[str, bool]:
     return " ".join(parts), had
 
 
+# Apostrophe-suffixes that mark a possessive or a contraction rather than a name.
+_POSSESSIVE = {"s", "'s"}
+_CONTRACTIONS = {"m", "d", "ll", "re", "ve", "t"}
+
+
+def _normalise_surface(surface: str) -> str | None:
+    """Fold a raw candidate to its canonical form, or reject it outright.
+
+    Three failure modes seen in real wrapped text, all of which produce phantom
+    characters if left alone:
+      "Harry's"  possessive        -> fold to "Harry"
+      "I'm"      contraction       -> reject, it is not a name
+      "You-"     hyphen fragment   -> reject, an artefact of de-hyphenating a wrap
+    """
+    tokens: list[str] = []
+    for tok in surface.split():
+        if tok.startswith("-") or tok.endswith("-"):
+            return None
+        if "'" in tok:
+            head, _, tail = tok.partition("'")
+            tail_l = tail.lower()
+            if tail_l in _CONTRACTIONS:
+                return None
+            if tail_l in _POSSESSIVE:
+                tok = head
+        if not tok:
+            return None
+        tokens.append(tok)
+    return " ".join(tokens) if tokens else None
+
+
 def extract_characters(
     passages: list[Passage],
     min_count: int = 8,
     lowercase_ratio: float = 0.25,
     fuzz_threshold: int = 88,
     top_n: int = 60,
+    min_person_evidence: int = 2,
 ) -> list[Character]:
     """Extract and resolve character identities from passages.
 
@@ -123,13 +186,19 @@ def extract_characters(
     """
     lower = _lowercase_profile(passages)
     raw = _candidate_counts(passages)
+    evidence = _person_evidence(passages)
 
     # --- (b) suppression -------------------------------------------------------
     surface_counts: Counter = Counter()
+    honorific_bearing: set[str] = set()
     for surface, count in raw.items():
-        stripped, _ = _strip_honorific(surface)
+        stripped, had_honorific = _strip_honorific(surface)
         if not stripped:
             continue
+        normalised = _normalise_surface(stripped)
+        if not normalised:
+            continue
+        stripped = normalised
         head = stripped.split()[0].lower()
         if head in STRUCTURAL_STOPS or len(head) < 3:
             continue
@@ -139,27 +208,64 @@ def extract_characters(
             lc = lower.get(head, 0)
             if lc and lc / (lc + count) > lowercase_ratio:
                 continue
+        if had_honorific:
+            honorific_bearing.add(stripped)
         surface_counts[stripped] += count
 
-    candidates = [s for s, c in surface_counts.items() if c >= min_count]
+    # --- (b2) person-vs-place ---------------------------------------------------
+    # An honorific already proves personhood. Otherwise require the name to have
+    # been observed next to a speech or action verb at least twice, which drops
+    # institutions and locations ("Hogwarts", "Gryffindor") without a gazetteer.
+    def _is_person(surface: str) -> bool:
+        if surface in honorific_bearing:
+            return True
+        return evidence.get(surface.split()[0].lower(), 0) >= min_person_evidence
+
+    candidates = [
+        s for s, c in surface_counts.items() if c >= min_count and _is_person(s)
+    ]
     if not candidates:
         return []
 
     # --- (c) alias clustering --------------------------------------------------
+    # A shared token is NOT enough to merge two names. "Fred Weasley" and
+    # "Ron Weasley" share a surname and are different people, so naive containment
+    # collapses an entire family into one identity. We merge only when the evidence
+    # points at one person:
+    #   - same given name      "Harry" + "Harry Potter"
+    #   - unambiguous surname  "Granger" + "Hermione Granger", but only because no
+    #                          other full name in the corpus ends in Granger
+    multi_token = [c for c in candidates if len(c.split()) > 1]
+    surname_owners: dict[str, set[str]] = defaultdict(set)
+    for full in multi_token:
+        for tok in full.lower().split()[1:]:
+            surname_owners[tok].add(full)
+
+    def _mergeable(a: str, b: str) -> bool:
+        a_toks, b_toks = a.lower().split(), b.lower().split()
+        if a_toks[0] == b_toks[0]:
+            return True
+        shorter, longer = (a_toks, b_toks) if len(a_toks) <= len(b_toks) else (b_toks, a_toks)
+        if len(shorter) == 1 and shorter[0] in longer[1:]:
+            # Only if this surname belongs to exactly one full name.
+            return len(surname_owners.get(shorter[0], set())) == 1
+        return False
+
     uf = _UnionFind()
-    # Longer surfaces first so "Dorothy Gale" tends to become the cluster root.
+    # Longer surfaces first so the fullest form tends to become the cluster root.
     ordered = sorted(candidates, key=lambda s: (-len(s.split()), -surface_counts[s]))
     for i, a in enumerate(ordered):
         uf.find(a)
-        a_tokens = set(a.lower().split())
         for b in ordered[i + 1 :]:
-            b_tokens = set(b.lower().split())
-            # Containment: "Dorothy" inside "Dorothy Gale".
-            if a_tokens & b_tokens and (a_tokens <= b_tokens or b_tokens <= a_tokens):
+            if _mergeable(a, b):
                 uf.union(a, b)
                 continue
-            # Fuzzy: spelling variants and transcription noise.
-            if fuzz.token_set_ratio(a, b) >= fuzz_threshold:
+            # Fuzzy match catches spelling variants, but still requires the given
+            # name to agree so it cannot re-introduce the family-merge bug.
+            if (
+                fuzz.token_set_ratio(a, b) >= fuzz_threshold
+                and a.lower().split()[0] == b.lower().split()[0]
+            ):
                 uf.union(a, b)
 
     clusters: dict[str, list[str]] = defaultdict(list)
@@ -191,6 +297,9 @@ def find_mentions(text: str, alias_index: dict[str, str]) -> set[str]:
     hits: set[str] = set()
     for run in NAME_RUN_RE.findall(text):
         stripped, _ = _strip_honorific(run.strip())
+        if not stripped:
+            continue
+        stripped = _normalise_surface(stripped) or ""
         if not stripped:
             continue
         canon = alias_index.get(stripped.lower())
