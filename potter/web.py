@@ -29,85 +29,122 @@ PAGE = Template(
 <html><head><meta charset="utf-8"><title>potter - corpus explorer</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
-:root{--bg:#0f1115;--panel:#171a21;--line:#262b36;--ink:#e8eaf0;--dim:#8b93a7;--acc:#7aa2f7;--warm:#e0af68}
+:root{--bg:#0f1115;--panel:#171a21;--line:#262b36;--ink:#e8eaf0;--dim:#9aa3b8;--acc:#7aa2f7;--warm:#e0af68;--good:#9ece6a}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 ui-sans-serif,system-ui,'Segoe UI',sans-serif}
-header{padding:22px 28px;border-bottom:1px solid var(--line);display:flex;align-items:baseline;gap:16px;flex-wrap:wrap}
-h1{margin:0;font-size:19px;letter-spacing:.3px}
+html{scroll-behavior:smooth;scroll-padding-top:70px}
+body{margin:0;background:var(--bg);color:var(--ink);font:15.5px/1.6 ui-sans-serif,system-ui,'Segoe UI',sans-serif}
+header{position:sticky;top:0;z-index:10;background:rgba(15,17,21,.94);backdrop-filter:blur(6px);
+  border-bottom:1px solid var(--line);padding:12px 24px;display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+h1{margin:0;font-size:18px;letter-spacing:.3px;white-space:nowrap}
 h1 span{color:var(--acc)}
-.meta{color:var(--dim);font-size:13px}
-main{max-width:1180px;margin:0 auto;padding:24px 20px 60px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px}
-section{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px 20px;overflow-x:auto}
+nav{display:flex;gap:4px;flex-wrap:wrap}
+nav a{color:var(--dim);font-size:13px;padding:5px 10px;border-radius:6px}
+nav a:hover{color:var(--ink);background:var(--panel);text-decoration:none}
+.meta{color:var(--dim);font-size:12.5px;margin-left:auto}
+main{max-width:1180px;margin:0 auto;padding:22px 20px 70px}
+.howto{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-bottom:22px}
+.howto .step{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:13px 16px;font-size:13.5px}
+.howto .step b{display:block;color:var(--warm);font-size:12px;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px}
+.howto .step span{color:var(--dim)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:18px}
+section{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px 22px;overflow-x:auto}
 section.wide{grid-column:1/-1}
-h2{margin:0 0 14px;font-size:13px;text-transform:uppercase;letter-spacing:1.1px;color:var(--dim);font-weight:600}
+h2{margin:0 0 6px;font-size:15px;color:var(--ink);font-weight:650}
+.sub{color:var(--dim);font-size:13px;margin:0 0 16px;max-width:70ch}
 table{width:100%;border-collapse:collapse;font-size:14px}
-th,td{text-align:left;padding:6px 10px 6px 0;border-bottom:1px solid var(--line);white-space:nowrap}
-th{color:var(--dim);font-weight:500;font-size:12px;text-transform:uppercase;letter-spacing:.6px}
+th,td{text-align:left;padding:7px 12px 7px 0;border-bottom:1px solid var(--line);white-space:nowrap}
+th{color:var(--dim);font-weight:500;font-size:11.5px;text-transform:uppercase;letter-spacing:.7px}
+tr:hover td{background:rgba(122,162,247,.05)}
 td.num{text-align:right;font-variant-numeric:tabular-nums}
 td.alias{color:var(--dim);font-size:13px;white-space:normal}
 a{color:var(--acc);text-decoration:none}
 a:hover{text-decoration:underline}
-form{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
-input[type=text]{flex:1;min-width:240px;background:#0b0d11;border:1px solid var(--line);color:var(--ink);
-  padding:11px 13px;border-radius:7px;font:inherit}
-select,button{background:#0b0d11;border:1px solid var(--line);color:var(--ink);padding:11px 13px;border-radius:7px;font:inherit;cursor:pointer}
-button{background:var(--acc);color:#0b0d11;font-weight:600;border-color:var(--acc)}
-.hit{border-left:2px solid var(--line);padding:2px 0 2px 14px;margin:0 0 16px}
-.hit .ref{color:var(--warm);font-size:12.5px;letter-spacing:.3px}
-.hit .why{color:var(--dim);font-size:12px}
-.hit p{margin:6px 0 0;white-space:normal}
-.spark{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:19px;color:var(--acc);letter-spacing:1px;white-space:pre}
-.bookrow{margin-bottom:14px}
-.bookrow .t{font-size:13.5px;margin-bottom:2px}
-.bookrow .s{color:var(--dim);font-size:12px}
+form{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+input[type=text]{flex:1;min-width:220px;background:#0b0d11;border:1px solid var(--line);color:var(--ink);
+  padding:12px 14px;border-radius:8px;font:inherit}
+input[type=text]:focus{outline:none;border-color:var(--acc)}
+select,button{background:#0b0d11;border:1px solid var(--line);color:var(--ink);padding:12px 14px;border-radius:8px;font:inherit;cursor:pointer}
+button{background:var(--acc);color:#0b0d11;font-weight:650;border-color:var(--acc)}
+button:hover{filter:brightness(1.1)}
+.try{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 6px}
+.try .lbl{color:var(--dim);font-size:12.5px}
+.try a{background:#0b0d11;border:1px solid var(--line);border-radius:20px;padding:5px 13px;font-size:13px;color:var(--ink)}
+.try a:hover{border-color:var(--acc);text-decoration:none}
+.hit{border-left:3px solid var(--acc);background:rgba(122,162,247,.04);border-radius:0 8px 8px 0;
+  padding:10px 14px;margin:0 0 14px}
+.hit .ref{color:var(--warm);font-size:13px;font-weight:600}
+.hit .why{color:var(--dim);font-size:12px;font-weight:400}
+.hit p{margin:6px 0 0;white-space:normal;max-width:95ch}
+.spark{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:20px;color:var(--acc);letter-spacing:1px;white-space:pre;line-height:1.2}
+.bookrow{margin-bottom:16px}
+.bookrow .t{font-size:14px;margin-bottom:2px;font-weight:600}
+.bookrow .s{color:var(--dim);font-size:12.5px}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
-.chip{background:#0b0d11;border:1px solid var(--line);border-radius:20px;padding:3px 10px;font-size:12.5px;color:var(--dim)}
+.chip{background:#0b0d11;border:1px solid var(--line);border-radius:20px;padding:4px 11px;font-size:12.5px;color:var(--dim)}
 .chip b{color:var(--ink);font-weight:500}
-.comm{margin-bottom:10px;font-size:13px}
-.comm .n{color:var(--warm);font-size:12px;display:block;margin-bottom:3px}
+.comm{margin-bottom:12px;font-size:13px}
+.comm .n{color:var(--warm);font-size:12px;display:block;margin-bottom:4px;font-weight:600}
 .note{color:var(--dim);font-size:12.5px;margin:0 0 12px}
 </style></head><body>
 <header>
   <h1>potter <span>corpus explorer</span></h1>
-  <div class="meta">{{ s.books }} books &middot; {{ '{:,}'.format(s.chapters) }} chapters &middot;
-    {{ '{:,}'.format(s.passages) }} passages &middot; {{ '{:,}'.format(s.words) }} words &middot;
-    {{ chars }} characters resolved</div>
+  <nav>
+    <a href="#search">Search</a><a href="#pair">Relationships</a><a href="#arcs">Arcs</a>
+    <a href="#who">Characters</a><a href="#vocab">Vocabulary</a><a href="#stats">Stats</a>
+  </nav>
+  <div class="meta">{{ s.books }} books &middot; {{ '{:,}'.format(s.passages) }} passages &middot;
+    {{ '{:,}'.format(s.words) }} words &middot; {{ chars }} characters</div>
 </header>
 <main>
 
-<section class="wide">
-  <h2>Search</h2>
+<div class="howto">
+  <div class="step"><b>1 &middot; Search a scene</b>
+    <span>Describe a moment in plain English. Semantic search finds it even if none of your words appear in the text.</span></div>
+  <div class="step"><b>2 &middot; Chart a relationship</b>
+    <span>Pick two characters and see, chapter by chapter, when their relationship starts existing.</span></div>
+  <div class="step"><b>3 &middot; Follow the arcs</b>
+    <span>Every book plotted on a tension axis. Click a character to see their ties and their own arc.</span></div>
+</div>
+
+<section class="wide" id="search">
+  <h2>Search the corpus</h2>
+  <p class="sub">Describe a scene in your own words. <b>fused</b> blends meaning-based and
+    exact-word search and is the best default. <b>semantic</b> finds paraphrases, <b>lexical</b>
+    finds exact terms.</p>
   <form method="get" action="/">
-    <input type="text" name="q" value="{{ q|e }}" placeholder="Describe a scene, or name a term" autofocus>
+    <input type="text" name="q" value="{{ q|e }}" placeholder="e.g. a dangerous duel with an enemy" autofocus>
     <select name="mode">
       {% for m in ['fused','semantic','lexical'] %}
       <option value="{{ m }}"{% if mode==m %} selected{% endif %}>{{ m }}</option>{% endfor %}
     </select>
     <button type="submit">Search</button>
   </form>
+  <div class="try"><span class="lbl">Try:</span>
+    <a href="/?q=a+dangerous+duel+with+an+enemy">a dangerous duel with an enemy</a>
+    <a href="/?q=a+warm+meal+among+friends">a warm meal among friends</a>
+    <a href="/?q=someone+is+afraid+of+being+expelled">afraid of being expelled</a>
+    <a href="/?q=wand&mode=lexical">wand (exact)</a>
+  </div>
   {% if q %}
     <p class="note">{{ hits|length }} result(s) for <b>{{ q|e }}</b> via {{ mode }}
       {%- if mode=='fused' %} (reciprocal rank fusion of dense + lexical){% endif %}</p>
     {% for h in hits %}
     <div class="hit">
       <div class="ref">{{ h.book }} &middot; ch.{{ h.chapter }} {{ h.chapter_title }}
-        <span class="why">[{{ h.ref }}] score {{ '%.4f'|format(h.score) }} &middot; {{ h.why }}</span></div>
+        <span class="why">&nbsp; score {{ '%.4f'|format(h.score) }} &middot; matched by {{ h.why }}</span></div>
       <p>{{ h.text }}</p>
     </div>
     {% endfor %}
     {% if not hits %}<p class="note">No matches.</p>{% endif %}
-  {% else %}
-    <p class="note">Try <a href="/?q=a+dangerous+duel+with+an+enemy">a dangerous duel with an enemy</a>,
-      <a href="/?q=a+warm+meal+among+friends">a warm meal among friends</a>, or
-      <a href="/?q=wand&mode=lexical">wand</a> in lexical mode.</p>
   {% endif %}
 </section>
 
 <div class="grid">
 
-<section>
+<section id="who">
   <h2>Characters</h2>
+  <p class="sub">Extracted with no name list and no NER model. Click a name for their
+    strongest ties and personal arc.</p>
   <table><tr><th>#</th><th>Name</th><th class="num">Mentions</th><th>Aliases</th></tr>
   {% for c in characters %}
   <tr><td style="color:var(--dim)">{{ loop.index }}</td>
@@ -120,7 +157,8 @@ button{background:var(--acc);color:#0b0d11;font-weight:600;border-color:var(--ac
 <section>
   <h2>{% if who %}Ties &middot; {{ who }}{% else %}Network structure{% endif %}</h2>
   {% if who %}
-    <p class="note"><a href="/">&larr; all characters</a> &middot; shared narrative windows</p>
+    <p class="sub"><a href="/">&larr; back to overview</a> &middot; who shares scenes with
+      {{ who }}, ranked by shared narrative windows.</p>
     <table><tr><th>Character</th><th class="num">Shared scenes</th><th></th></tr>
     {% for n,w in ties %}<tr><td><a href="/?who={{ n|urlencode }}">{{ n }}</a></td>
       <td class="num">{{ '{:,}'.format(w) }}</td>
@@ -133,7 +171,8 @@ button{background:var(--acc);color:#0b0d11;font-weight:600;border-color:var(--ac
     {% endfor %}
     {% endif %}
   {% else %}
-    <p class="note">Weighted degree = interaction volume. Betweenness = brokerage between groups.</p>
+    <p class="sub">Two different questions of the same graph. <b>Volume</b> is who dominates
+      scenes. <b>Brokerage</b> is who bridges groups that otherwise never meet.</p>
     <table><tr><th>Volume</th><th class="num"></th><th>Brokerage</th><th class="num"></th></tr>
     {% for row in netrows %}
     <tr><td>{{ row[0] }}</td><td class="num">{{ row[1] }}</td>
@@ -142,16 +181,23 @@ button{background:var(--acc);color:#0b0d11;font-weight:600;border-color:var(--ac
   {% endif %}
 </section>
 
-<section class="wide">
+<section class="wide" id="pair">
   <h2>Relationship timeline</h2>
+  <p class="sub">Shared passages per chapter, across the whole series. A flat line means the
+    relationship does not exist yet - the shape shows exactly when it begins. Typos are fine,
+    names are fuzzy-matched.</p>
   <form method="get" action="/">
     <input type="text" name="a" value="{{ pa|e }}" placeholder="First character (e.g. Harry)">
     <input type="text" name="b" value="{{ pb|e }}" placeholder="Second character (e.g. Ginny)">
     <button type="submit">Chart</button>
   </form>
+  <div class="try"><span class="lbl">Try:</span>
+    <a href="/?a=Harry&b=Ginny#pair">Harry + Ginny</a>
+    <a href="/?a=Snape&b=Voldemort#pair">Snape + Voldemort</a>
+    <a href="/?a=Ron&b=Hermione#pair">Ron + Hermione</a>
+  </div>
   {% if pair_rows %}
-    <p class="note">Shared passages per chapter for <b>{{ pa }}</b> + <b>{{ pb }}</b>. A flat line
-      means the relationship does not exist yet; the shape shows when it begins.</p>
+    <p class="note">Shared passages per chapter for <b>{{ pa }}</b> + <b>{{ pb }}</b>:</p>
     {% for r in pair_rows %}
     <div class="bookrow"><div class="t">{{ r.title }} <span class="s">&middot; {{ r.total }} shared</span></div>
       <div class="spark">{{ r.spark }}</div>
@@ -159,18 +205,17 @@ button{background:var(--acc);color:#0b0d11;font-weight:600;border-color:var(--ac
     </div>
     {% endfor %}
   {% elif pa or pb %}
-    <p class="note">Could not resolve both names. Check the character list on the left.</p>
-  {% else %}
-    <p class="note">Try <a href="/?a=Harry&b=Ginny">Harry + Ginny</a> or
-      <a href="/?a=Snape&b=Voldemort">Snape + Voldemort</a>.</p>
+    <p class="note">Could not resolve both names. Check the character list above.</p>
   {% endif %}
 </section>
 
-<section class="wide">
+<section class="wide" id="arcs">
   <h2>Narrative arcs</h2>
-  <p class="note">Z-scored projection onto a semantic axis defined by probe sentences, smoothed over 9
-    passages. Measures similarity to the axis poles, not calibrated emotion.
-    {% for a in axes %}<a href="/?axis={{ a }}{% if q %}&q={{ q|urlencode }}&mode={{ mode }}{% endif %}">{{ a }}</a>{% if not loop.last %} &middot; {% endif %}{% endfor %}</p>
+  <p class="sub">Each book plotted along a semantic axis built from probe sentences in embedding
+    space - no sentiment lexicon. Low ▁ to high █. It measures similarity to the axis poles,
+    not calibrated emotion.</p>
+  <div class="try"><span class="lbl">Axis:</span>
+    {% for a in axes %}<a href="/?axis={{ a }}#arcs"{% if a==axis %} style="border-color:var(--acc)"{% endif %}>{{ a }}</a>{% endfor %}</div>
   {% for b in arcs %}
   <div class="bookrow"><div class="t">{{ b.title }}</div>
     <div class="spark">{{ b.spark }}</div>
@@ -181,24 +226,27 @@ button{background:var(--acc);color:#0b0d11;font-weight:600;border-color:var(--ac
 
 <section>
   <h2>Communities</h2>
-  <p class="note">Greedy modularity over the weighted graph.</p>
+  <p class="sub">Social groups the graph finds on its own - characters who share scenes with
+    each other more than with anyone outside the group.</p>
   {% for c in communities %}
   <div class="comm"><span class="n">Group {{ loop.index }} &middot; {{ c|length }} members</span>
     <div class="chips">{% for m in c %}<span class="chip"><b>{{ m }}</b></span>{% endfor %}</div></div>
   {% endfor %}
 </section>
 
-<section>
+<section id="vocab">
   <h2>Distinctive vocabulary</h2>
-  <p class="note">Log-odds with an informative Dirichlet prior, z-scored. Over-represented versus the rest of the corpus.</p>
+  <p class="sub">Words over-represented in one book against the rest of the series - each book's
+    plot, visible in its word list alone. Higher score = more distinctive.</p>
   {% for book, terms in distinctive %}
   <div class="comm"><span class="n">{{ book }}</span>
     <div class="chips">{% for w,z in terms %}<span class="chip"><b>{{ w }}</b> {{ '%.1f'|format(z) }}</span>{% endfor %}</div></div>
   {% endfor %}
 </section>
 
-<section>
+<section id="stats">
   <h2>Corpus statistics</h2>
+  <p class="sub">Structure and texture of the text itself.</p>
   <table>
     {% for k,v in stats %}<tr><td style="color:var(--dim)">{{ k }}</td><td class="num">{{ v }}</td></tr>{% endfor %}
   </table>
