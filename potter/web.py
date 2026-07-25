@@ -79,6 +79,8 @@ button:hover{filter:brightness(1.1)}
 .bookrow{margin-bottom:16px}
 .bookrow .t{font-size:14px;margin-bottom:2px;font-weight:600}
 .bdot{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:8px}
+.avatar{display:inline-flex;width:26px;height:26px;border-radius:50%;align-items:center;
+  justify-content:center;font-size:11px;font-weight:700;color:#0b0d11;margin-right:9px;vertical-align:middle}
 .bookrow .s{color:var(--dim);font-size:12.5px}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
 .chip{background:#0b0d11;border:1px solid var(--line);border-radius:20px;padding:4px 11px;font-size:12.5px;color:var(--dim)}
@@ -150,7 +152,7 @@ button:hover{filter:brightness(1.1)}
   <table><tr><th>#</th><th>Name</th><th class="num">Mentions</th><th>Aliases</th></tr>
   {% for c in characters %}
   <tr><td style="color:var(--dim)">{{ loop.index }}</td>
-      <td><a href="/?who={{ c.name|urlencode }}">{{ c.name }}</a></td>
+      <td><span class="avatar" style="background:{{ c.hue }}">{{ c.initials }}</span><a href="/?who={{ c.name|urlencode }}">{{ c.name }}</a></td>
       <td class="num">{{ '{:,}'.format(c.count) }}</td>
       <td class="alias">{{ c.aliases }}</td></tr>
   {% endfor %}</table>
@@ -448,8 +450,15 @@ def _render(art, params: dict) -> str:
         arcs=arcs,
         netrows=netrows,
         characters=[
-            {"name": c.name, "count": c.count,
-             "aliases": ", ".join(sorted(c.aliases - {c.name})[:4]) or "-"}
+            {
+                "name": c.name,
+                "count": c.count,
+                "aliases": ", ".join(sorted(c.aliases - {c.name})[:4]) or "-",
+                # Deterministic monogram avatar: initials plus a name-hashed hue,
+                # so a character keeps the same colour everywhere, every build.
+                "initials": "".join(t[0] for t in c.name.split()[:2]).upper(),
+                "hue": f"hsl({sum(ord(ch) for ch in c.name) * 37 % 360},58%,62%)",
+            }
             for c in art.characters[:25]
         ],
         communities=art.graph_analysis["communities"][:5],
