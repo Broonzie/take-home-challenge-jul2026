@@ -29,6 +29,35 @@ Verified on the seven novel corpus: **7 books, 198 chapters, 31,912 paragraphs,
 
 ---
 
+## Techniques exhibited
+
+The brief asked for a wide range of techniques. The inventory, and where each one
+lives:
+
+| Family | Technique | Where |
+|---|---|---|
+| Heuristic text processing | Wrap-convention detection, paragraph recovery from line geometry, dominant-pattern selection | `corpus.py` |
+| Statistical NLP | Corpus-as-its-own-stopword-list via lowercase profiling | `characters.py` |
+| Rule-based linguistics | Speech-verb personhood test, honorific handling, possessive folding | `characters.py` |
+| Classical algorithms | Union-find for alias clustering, fuzzy string matching | `characters.py` |
+| Graph theory | Weighted co-occurrence network, degree strength, betweenness centrality, greedy modularity communities | `network.py` |
+| Bayesian statistics | Log-odds ratio with informative Dirichlet prior (Monroe et al. 2008) | `lexicon.py` |
+| Corpus linguistics | Type/token ratio, hapax legomena, dialogue share, KWIC concordance | `lexicon.py`, `search.py` |
+| Neural embeddings | Bi-encoder sentence embeddings (all-MiniLM-L6-v2), GPU batch encoding | `search.py`, `build.py` |
+| Embedding-space geometry | Semantic axis construction and projection for narrative arcs | `arc.py` |
+| Signal processing | Z-scoring, moving-average smoothing, sparkline resampling | `arc.py` |
+| Information retrieval | Dense retrieval, lexical search, Reciprocal Rank Fusion | `search.py` |
+| Engineering | Artefact cache pattern, CLI + REPL + dependency-free web server, pytest suite with synthetic fixtures | `build.py`, `cli.py`, `web.py`, `tests/` |
+
+Deliberately absent: a generative LLM layer. `potter ask` - retrieval-augmented
+answers over the corpus with citations - is the obvious capstone, but it needs an
+API key at runtime, which would make it the one feature a reviewer cannot run from
+a cold clone. In a 90 minute window I chose breadth that runs everywhere over a
+headline feature that runs conditionally. It is first on the roadmap below after
+coreference.
+
+---
+
 ## Flow diagram
 
 ```mermaid
