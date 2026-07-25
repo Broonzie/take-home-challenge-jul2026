@@ -4,6 +4,8 @@ A pipeline that turns seven plain-text novels into a queryable model of the corp
 and an interactive tool for exploring it. Built for the Simply TV 90 minute coding
 challenge.
 
+**Video demo:** _link to be added_
+
 Word frequency is not the interesting part of a 1.1 million word narrative corpus.
 Structure is. Who exists, who interacts with whom, how the vocabulary shifts between
 volumes, and where the shape of each book rises and falls. This repo extracts those
