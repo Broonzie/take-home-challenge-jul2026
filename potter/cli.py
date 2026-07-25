@@ -310,22 +310,25 @@ def explore() -> None:
             if cmd in {"quit", "exit", "q"}:
                 console.print("bye")
                 return
+            # Typer's @app.command() returns the undecorated function, so these are
+            # ordinary calls. Every argument is passed explicitly because the
+            # defaults are typer.Option objects, not plain values.
             if cmd == "find" and rest:
                 _render_hits(_run_search(art, rest, 6, "fused"), rest, "fused")
             elif cmd == "kwic" and rest:
-                kwic.callback(rest, 10)  # type: ignore[misc]
+                kwic(rest, 10)
             elif cmd == "who" and rest:
-                network.callback(rest, 12)  # type: ignore[misc]
+                network(rest, 12)
             elif cmd == "arc":
-                arc.callback(rest or "tension", 64)  # type: ignore[misc]
+                arc(rest or "tension", 64)
             elif cmd == "top":
-                characters.callback(20)  # type: ignore[misc]
+                characters(20)
             elif cmd == "net":
-                network.callback(None, 15)  # type: ignore[misc]
+                network(None, 15)
             elif cmd == "words":
-                distinctive.callback(12)  # type: ignore[misc]
+                distinctive(12)
             elif cmd == "stats":
-                overview.callback()  # type: ignore[misc]
+                overview()
             else:
                 console.print("[yellow]Unrecognised. Commands: find, kwic, who, arc, top, net, words, stats, quit[/yellow]")
         except Exception as exc:  # noqa: BLE001 - a REPL must not die on one bad query

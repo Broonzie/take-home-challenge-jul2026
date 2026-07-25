@@ -302,13 +302,25 @@ def find_mentions(text: str, alias_index: dict[str, str]) -> set[str]:
         stripped = _normalise_surface(stripped) or ""
         if not stripped:
             continue
-        canon = alias_index.get(stripped.lower())
-        if canon:
-            hits.add(canon)
+
+        tokens = stripped.split()
+        # Try the fullest form first, then drop leading tokens one at a time. A
+        # sentence-initial word is capitalised and gets swept into the same run
+        # ("Then Harry"), so without this the mention is simply lost - and every
+        # co-occurrence count downstream is quietly low.
+        matched = False
+        for start in range(len(tokens)):
+            canon = alias_index.get(" ".join(tokens[start:]).lower())
+            if canon:
+                hits.add(canon)
+                matched = True
+                break
+        if matched:
             continue
-        # Fall back to the head token ("Dorothy" from "Dorothy's").
-        head = stripped.split()[0]
-        canon = alias_index.get(head.lower())
-        if canon:
-            hits.add(canon)
+        # Last resort: any single token in the run.
+        for tok in tokens:
+            canon = alias_index.get(tok.lower())
+            if canon:
+                hits.add(canon)
+                break
     return hits
