@@ -43,6 +43,7 @@ class Artefacts:
     meta: dict
 
     _model = None
+    _mentions: list[set[str]] | None = None
 
     def model(self):
         """Lazily load the encoder - only search needs it, and it costs ~2s."""
@@ -51,6 +52,16 @@ class Artefacts:
 
             self._model = SentenceTransformer(MODEL_NAME)
         return self._model
+
+    def mentions(self) -> list[set[str]]:
+        """Canonical characters mentioned in each passage. Computed once per
+        process (~1s over 32k passages) rather than stored, so the cache format
+        stays stable while the alias logic can still evolve."""
+        if self._mentions is None:
+            self._mentions = [
+                char_mod.find_mentions(p.text, self.alias_index) for p in self.passages
+            ]
+        return self._mentions
 
     @property
     def books(self) -> list[str]:

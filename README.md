@@ -100,7 +100,8 @@ potter build
 ### Explore
 
 ```bash
-potter explore                              # interactive REPL, start here
+potter demo                                 # guided tour of the best findings, start here
+potter explore                              # interactive REPL
 potter web                                  # browser UI on http://127.0.0.1:8000
 ```
 
@@ -111,14 +112,17 @@ potter overview                             # corpus statistics
 potter characters --top 20                  # resolved identities and aliases
 potter network                              # centrality, brokers, communities
 potter network --character hermione         # one character's strongest ties
+potter pair harry ginny                     # relationship timeline for two characters
 potter arc --axis tension                   # arc sparklines per book
+potter arc --axis tension --character harry # the same, restricted to one character
 potter distinctive                          # vocabulary unique to each book
 potter search "a dangerous duel"            # hybrid semantic + lexical
 potter search "..." --mode semantic         # dense only
 potter kwic wand                            # exact concordance lines
 ```
 
-In the REPL: `find`, `kwic`, `who`, `arc`, `top`, `net`, `words`, `stats`, `quit`.
+In the REPL: `find`, `kwic`, `who`, `pair`, `arc`, `top`, `net`, `words`, `stats`,
+`quit`.
 
 ### Tests
 
@@ -129,6 +133,48 @@ pytest tests -q
 The heuristics are tested against small synthetic fixtures, so most of the suite
 runs with no corpus present. The integration tests skip if you have not built the
 cache.
+
+---
+
+## Interesting findings
+
+The brief asked for interesting attributes of the corpus. These came out of the
+tool, none of them were put in, and every number below is reproducible with the
+command shown.
+
+**Relationships have visible start dates.** `potter pair harry ginny` shows zero
+shared passages in book one, a single spike in book two at the chapter where he
+rescues her, then near silence until the count climbs through books five and six.
+The tool has no idea who these people are. The shape alone tells you when the
+relationship starts existing.
+
+**The demo picks its own pair.** `potter demo` selects the pair whose interaction is
+most concentrated late in the series, and on this corpus it lands on Snape and
+Voldemort: single digits for five books, then 15 and 29 shared passages in the last
+two. It finds the axis the series was quietly building towards.
+
+**The brokers are not the stars.** By raw interaction volume the top three are
+exactly who you would guess. But betweenness centrality surfaces Dudley, Vernon and
+Petunia, because the Dursleys are the only bridge between the Muggle cluster and
+everyone else. Tonks shows up the same way as a bridge into the Order. Two different
+questions, two different answers, same graph.
+
+**Each book has a vocabulary fingerprint.** `potter distinctive` recovers the plot
+of each volume from word statistics alone. Book two is `lockhart, dobby, chamber,
+riddle`. No topic model, just log-odds against the rest of the series.
+
+**Alias resolution finds things a name list would not.** `Weasley Is Our King` and
+`Dumbledore Army` both surface as aliases, because they are capitalised runs that
+cluster with a character. Wrong in a charming way, and exactly the kind of artefact
+an honest unsupervised method produces.
+
+**The tension arcs find the climaxes, mostly.** `potter arc --axis tension` names a
+peak chapter for each book, and in five of seven it is the chapter a reader would
+call the climax: The Heir of Slytherin, The Third Task, The Only One He Ever Feared,
+and so on. Books one and seven peak mid-book instead, on The Midnight Duel and The
+Silver Doe, both intense scenes but not the endings. That hit rate from hand-written
+probe sentences and no training is the honest result, and the misses are as
+informative as the hits.
 
 ---
 
@@ -266,9 +312,9 @@ Roughly in the order I would pick it up.
 4. **Scene segmentation instead of paragraph windows.** A fixed window is a proxy for
    a scene. Detecting real scene boundaries, on setting and time shifts, would make
    both the network and the arcs sharper.
-5. **Character-relative arcs.** The machinery already supports it. Project only the
-   passages where a given character is mentioned and you get a per-character arc,
-   which is a much better question than a per-book one.
+5. **Cross-encoder reranking.** The bi-encoder retrieves candidates fast, but a
+   cross-encoder pass over the top 50 would sharpen the ordering, and at k=8 the
+   latency cost is nothing.
 6. **An ANN index.** Needed the moment this goes past roughly a million passages.
    Not needed at 32k, so it would have been premature here.
 7. **Track alias decisions in the output.** When two surface forms merge, record why.
@@ -309,6 +355,7 @@ potter/
   search.py      stage 6, dense, lexical and fused retrieval
   build.py       pipeline orchestration and artefact cache
   cli.py         one-shot commands and the REPL
+  demo.py        guided tour of the findings
   web.py         browser UI
 scripts/
   fetch_demo_corpus.py   public-domain corpus for a zero-setup smoke test

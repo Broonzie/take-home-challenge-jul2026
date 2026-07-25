@@ -171,32 +171,99 @@ def _resolve_character(art: build_mod.Artefacts, query: str) -> str | None:
 def arc(
     axis: str = typer.Option("tension", help=f"One of: {', '.join(arc_mod.AXES)}"),
     width: int = typer.Option(64),
+    character: str = typer.Option(None, help="Restrict to passages mentioning this character"),
 ) -> None:
-    """Narrative arc along a semantic axis, per book."""
+    """Narrative arc along a semantic axis, per book - whole corpus or one character."""
     art = _art()
     if axis not in art.arcs:
         console.print(f"[red]Unknown axis '{axis}'. Available: {', '.join(art.arcs)}[/red]")
         raise typer.Exit(code=1)
 
+    who = None
+    if character:
+        who = _resolve_character(art, character)
+        if who is None:
+            return
+        mentioned = art.mentions()
+
     series = np.asarray(art.arcs[axis])
+    scope = f" - restricted to passages mentioning [bold]{who}[/bold]" if who else ""
     console.print(Panel(
         f"[bold]{axis}[/bold] axis - z-scored projection onto the "
-        f"{axis}-pole direction in embedding space, smoothed over 9 passages.\n"
+        f"{axis}-pole direction in embedding space, smoothed over 9 passages{scope}.\n"
         "[dim]Low ▁▁ to high ██. Measures semantic similarity to the axis poles, "
         "not calibrated emotion.[/dim]",
         border_style="cyan",
     ))
 
     for book in art.books:
-        idx = [i for i, p in enumerate(art.passages) if p.book == book]
+        idx = [
+            i for i, p in enumerate(art.passages)
+            if p.book == book and (who is None or who in mentioned[i])
+        ]
+        if len(idx) < 5:
+            console.print(f"\n[bold]{book}[/bold]  [dim]too few passages ({len(idx)})[/dim]")
+            continue
         vals = series[idx]
-        console.print(f"\n[bold]{book}[/bold]  [dim]mean {vals.mean():+.2f}, peak {vals.max():+.2f}[/dim]")
+        console.print(f"\n[bold]{book}[/bold]  [dim]{len(idx):,} passages, "
+                      f"mean {vals.mean():+.2f}, peak {vals.max():+.2f}[/dim]")
         console.print(f"  [cyan]{arc_mod.sparkline(vals, width=width)}[/cyan]")
         # Name the peak scene so the number is anchored to something readable.
         peak_local = int(np.argmax(vals))
         peak = art.passages[idx[peak_local]]
         console.print(f"  [dim]peak at ch.{peak.chapter} '{peak.chapter_title}': "
                       f"{peak.text[:110]}...[/dim]")
+
+
+@app.command()
+def pair(
+    first: str = typer.Argument(..., help="First character"),
+    second: str = typer.Argument(..., help="Second character"),
+    width: int = typer.Option(64),
+) -> None:
+    """Relationship timeline: how often two characters share a passage, per book."""
+    art = _art()
+    a = _resolve_character(art, first)
+    if a is None:
+        return
+    b = _resolve_character(art, second)
+    if b is None:
+        return
+    if a == b:
+        console.print("[yellow]That is the same character twice.[/yellow]")
+        return
+
+    mentioned = art.mentions()
+    console.print(Panel(
+        f"[bold]{a}[/bold] + [bold]{b}[/bold] - shared passages per chapter.\n"
+        "[dim]The shape shows when a relationship exists at all, not just how strong it is.[/dim]",
+        border_style="cyan",
+    ))
+
+    grand_total = 0
+    for book in art.books:
+        # Count shared passages per chapter, keeping chapter order.
+        chapters: dict[int, int] = {}
+        for i, p in enumerate(art.passages):
+            if p.book != book:
+                continue
+            chapters.setdefault(p.chapter, 0)
+            if a in mentioned[i] and b in mentioned[i]:
+                chapters[p.chapter] += 1
+        counts = np.asarray([chapters[c] for c in sorted(chapters)], dtype=float)
+        total = int(counts.sum())
+        grand_total += total
+        spark = arc_mod.sparkline(counts, width=width) if total else "▁" * min(len(counts), width)
+        console.print(f"\n[bold]{book}[/bold]  [dim]{total:,} shared passages[/dim]")
+        console.print(f"  [cyan]{spark}[/cyan]")
+        if total:
+            peak_ch = max(sorted(chapters), key=lambda c: chapters[c])
+            title = next(
+                (p.chapter_title for p in art.passages if p.book == book and p.chapter == peak_ch),
+                "",
+            )
+            console.print(f"  [dim]peak ch.{peak_ch} '{title}' with {chapters[peak_ch]} shared passages[/dim]")
+    console.print(f"\n[dim]Series total:[/dim] [bold]{grand_total:,}[/bold] shared passages")
 
 
 # --------------------------------------------------------------------- distinctive
@@ -284,7 +351,8 @@ def explore() -> None:
         "  [cyan]find[/cyan] <description>   semantic + lexical scene search\n"
         "  [cyan]kwic[/cyan] <term>          exact concordance lines\n"
         "  [cyan]who[/cyan] <name>           a character's strongest ties\n"
-        "  [cyan]arc[/cyan] [axis]           narrative arc sparklines\n"
+        "  [cyan]pair[/cyan] <a> <b>         relationship timeline for two characters\n"
+        "  [cyan]arc[/cyan] [axis] [name]    narrative arc, whole corpus or one character\n"
         "  [cyan]top[/cyan]                  characters by mention volume\n"
         "  [cyan]net[/cyan]                  network structure and communities\n"
         "  [cyan]words[/cyan]                distinctive vocabulary per book\n"
@@ -319,8 +387,20 @@ def explore() -> None:
                 kwic(rest, 10)
             elif cmd == "who" and rest:
                 network(rest, 12)
+            elif cmd == "pair" and rest:
+                names = rest.split()
+                if len(names) == 2:
+                    pair(names[0], names[1], 64)
+                else:
+                    console.print("[yellow]usage: pair <first> <second>[/yellow]")
             elif cmd == "arc":
-                arc(rest or "tension", 64)
+                parts = rest.split(maxsplit=1)
+                axis_name = parts[0] if parts and parts[0] in art.arcs else "tension"
+                char_name = (
+                    parts[1] if len(parts) > 1
+                    else (parts[0] if parts and parts[0] not in art.arcs else None)
+                )
+                arc(axis_name, 64, char_name)
             elif cmd == "top":
                 characters(20)
             elif cmd == "net":
@@ -333,6 +413,19 @@ def explore() -> None:
                 console.print("[yellow]Unrecognised. Commands: find, kwic, who, arc, top, net, words, stats, quit[/yellow]")
         except Exception as exc:  # noqa: BLE001 - a REPL must not die on one bad query
             console.print(f"[red]error:[/red] {exc}")
+
+
+# ---------------------------------------------------------------------------- demo
+
+
+@app.command()
+def demo(
+    pause: bool = typer.Option(True, help="Wait for Enter between findings"),
+) -> None:
+    """Guided tour of the most interesting findings. Made for showing the tool."""
+    from .demo import run_demo
+
+    run_demo(_art(), console, interactive=pause)
 
 
 # ----------------------------------------------------------------------------- web

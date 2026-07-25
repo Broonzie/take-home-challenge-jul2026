@@ -121,9 +121,17 @@ button{background:var(--acc);color:#0b0d11;font-weight:600;border-color:var(--ac
   <h2>{% if who %}Ties &middot; {{ who }}{% else %}Network structure{% endif %}</h2>
   {% if who %}
     <p class="note"><a href="/">&larr; all characters</a> &middot; shared narrative windows</p>
-    <table><tr><th>Character</th><th class="num">Shared scenes</th></tr>
+    <table><tr><th>Character</th><th class="num">Shared scenes</th><th></th></tr>
     {% for n,w in ties %}<tr><td><a href="/?who={{ n|urlencode }}">{{ n }}</a></td>
-      <td class="num">{{ '{:,}'.format(w) }}</td></tr>{% endfor %}</table>
+      <td class="num">{{ '{:,}'.format(w) }}</td>
+      <td><a href="/?a={{ who|urlencode }}&b={{ n|urlencode }}">timeline &rarr;</a></td></tr>{% endfor %}</table>
+    {% if who_arc %}
+    <p class="note" style="margin-top:14px">Tension arc across passages mentioning {{ who }}:</p>
+    {% for b in who_arc %}
+    <div class="bookrow"><div class="s">{{ b.title }}</div>
+      <div class="spark" style="font-size:15px">{{ b.spark }}</div></div>
+    {% endfor %}
+    {% endif %}
   {% else %}
     <p class="note">Weighted degree = interaction volume. Betweenness = brokerage between groups.</p>
     <table><tr><th>Volume</th><th class="num"></th><th>Brokerage</th><th class="num"></th></tr>
@@ -131,6 +139,30 @@ button{background:var(--acc);color:#0b0d11;font-weight:600;border-color:var(--ac
     <tr><td>{{ row[0] }}</td><td class="num">{{ row[1] }}</td>
         <td>{{ row[2] }}</td><td class="num">{{ row[3] }}</td></tr>
     {% endfor %}</table>
+  {% endif %}
+</section>
+
+<section class="wide">
+  <h2>Relationship timeline</h2>
+  <form method="get" action="/">
+    <input type="text" name="a" value="{{ pa|e }}" placeholder="First character (e.g. Harry)">
+    <input type="text" name="b" value="{{ pb|e }}" placeholder="Second character (e.g. Ginny)">
+    <button type="submit">Chart</button>
+  </form>
+  {% if pair_rows %}
+    <p class="note">Shared passages per chapter for <b>{{ pa }}</b> + <b>{{ pb }}</b>. A flat line
+      means the relationship does not exist yet; the shape shows when it begins.</p>
+    {% for r in pair_rows %}
+    <div class="bookrow"><div class="t">{{ r.title }} <span class="s">&middot; {{ r.total }} shared</span></div>
+      <div class="spark">{{ r.spark }}</div>
+      {% if r.peak %}<div class="s">peak ch.{{ r.peak_ch }} '{{ r.peak_title }}' with {{ r.peak }} shared passages</div>{% endif %}
+    </div>
+    {% endfor %}
+  {% elif pa or pb %}
+    <p class="note">Could not resolve both names. Check the character list on the left.</p>
+  {% else %}
+    <p class="note">Try <a href="/?a=Harry&b=Ginny">Harry + Ginny</a> or
+      <a href="/?a=Snape&b=Voldemort">Snape + Voldemort</a>.</p>
   {% endif %}
 </section>
 
@@ -196,12 +228,64 @@ def _render(art, params: dict) -> str:
             raw = search_mod.fused_search(art.model(), q, art.embeddings, art.passages, k=8)
         hits = [h.to_dict() for h in raw]
 
+    def _resolve(name: str) -> str | None:
+        if not name:
+            return None
+        canon = art.alias_index.get(name.strip().lower())
+        if canon:
+            return canon
+        from rapidfuzz import process
+
+        match = process.extractOne(name.strip(), [c.name for c in art.characters], score_cutoff=60)
+        return match[0] if match else None
+
     ties = []
+    who_arc = []
     if who:
+        resolved = _resolve(who)
+        who = resolved or who
         graph = net_mod.from_json(art.graph_json)
         if who in graph:
             ties = [(n, d["weight"]) for n, d in
                     sorted(graph[who].items(), key=lambda kv: -kv[1]["weight"])[:15]]
+        if resolved:
+            mentioned = art.mentions()
+            tension = np.asarray(art.arcs["tension"])
+            for book in art.books:
+                idx = [i for i, p in enumerate(art.passages)
+                       if p.book == book and who in mentioned[i]]
+                if len(idx) >= 5:
+                    who_arc.append({"title": book, "spark": arc_mod.sparkline(tension[idx], width=64)})
+
+    pa = (params.get("a", [""])[0] or "").strip()
+    pb = (params.get("b", [""])[0] or "").strip()
+    pair_rows = []
+    ra, rb = _resolve(pa), _resolve(pb)
+    if ra and rb and ra != rb:
+        pa, pb = ra, rb
+        mentioned = art.mentions()
+        for book in art.books:
+            chapters: dict[int, int] = {}
+            titles: dict[int, str] = {}
+            for i, p in enumerate(art.passages):
+                if p.book != book:
+                    continue
+                chapters.setdefault(p.chapter, 0)
+                titles.setdefault(p.chapter, p.chapter_title)
+                if ra in mentioned[i] and rb in mentioned[i]:
+                    chapters[p.chapter] += 1
+            ordered = sorted(chapters)
+            counts = np.asarray([chapters[c] for c in ordered], dtype=float)
+            total = int(counts.sum())
+            peak_ch = max(ordered, key=lambda c: chapters[c]) if total else 0
+            pair_rows.append({
+                "title": book,
+                "total": total,
+                "spark": arc_mod.sparkline(counts, width=72) if total else "▁" * min(len(ordered), 72),
+                "peak": chapters.get(peak_ch, 0) if total else 0,
+                "peak_ch": peak_ch,
+                "peak_title": titles.get(peak_ch, ""),
+            })
 
     series = np.asarray(art.arcs[axis])
     arcs = []
@@ -248,6 +332,10 @@ def _render(art, params: dict) -> str:
         hits=hits,
         who=who,
         ties=ties,
+        who_arc=who_arc,
+        pa=pa,
+        pb=pb,
+        pair_rows=pair_rows,
         axis=axis,
         axes=list(art.arcs),
         arcs=arcs,
