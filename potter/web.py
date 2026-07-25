@@ -88,6 +88,26 @@ button:hover{filter:brightness(1.1)}
 .comm{margin-bottom:12px;font-size:13px}
 .comm .n{color:var(--warm);font-size:12px;display:block;margin-bottom:4px;font-weight:600}
 .note{color:var(--dim);font-size:12.5px;margin:0 0 12px}
+.spark{max-width:100%;overflow-x:auto}
+@media (max-width:1000px){
+  .spark{font-size:16px}
+  .meta{flex-basis:100%;margin-left:0;order:3}
+}
+@media (max-width:720px){
+  body{font-size:14.5px}
+  header{padding:10px 14px;gap:10px}
+  h1{font-size:16px}
+  nav a{padding:4px 8px;font-size:12.5px}
+  main{padding:14px 12px 50px}
+  section{padding:14px 16px;border-radius:10px}
+  .howto{grid-template-columns:1fr}
+  .grid{grid-template-columns:1fr}
+  .spark{font-size:13px;letter-spacing:0}
+  .hit p{font-size:14px}
+  input[type=text]{min-width:150px}
+  #who td.alias{display:none}
+  #who th:last-child{display:none}
+}
 </style></head><body>
 <header>
   <h1>potter <span>corpus explorer</span></h1>
