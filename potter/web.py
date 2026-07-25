@@ -78,6 +78,7 @@ button:hover{filter:brightness(1.1)}
 .spark{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:20px;color:var(--acc);letter-spacing:1px;white-space:pre;line-height:1.2}
 .bookrow{margin-bottom:16px}
 .bookrow .t{font-size:14px;margin-bottom:2px;font-weight:600}
+.bdot{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:8px}
 .bookrow .s{color:var(--dim);font-size:12.5px}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
 .chip{background:#0b0d11;border:1px solid var(--line);border-radius:20px;padding:4px 11px;font-size:12.5px;color:var(--dim)}
@@ -89,8 +90,9 @@ button:hover{filter:brightness(1.1)}
 <header>
   <h1>potter <span>corpus explorer</span></h1>
   <nav>
-    <a href="#search">Search</a><a href="#pair">Relationships</a><a href="#arcs">Arcs</a>
-    <a href="#who">Characters</a><a href="#vocab">Vocabulary</a><a href="#stats">Stats</a>
+    <a href="#search">Search</a><a href="#pair">Relationships</a><a href="#presence">Presence</a>
+    <a href="#arcs">Arcs</a><a href="#who">Characters</a><a href="#vocab">Vocabulary</a>
+    <a href="#stats">Stats</a>
   </nav>
   <div class="meta">{{ s.books }} books &middot; {{ '{:,}'.format(s.passages) }} passages &middot;
     {{ '{:,}'.format(s.words) }} words &middot; {{ chars }} characters</div>
@@ -199,7 +201,7 @@ button:hover{filter:brightness(1.1)}
   {% if pair_rows %}
     <p class="note">Shared passages per chapter for <b>{{ pa }}</b> + <b>{{ pb }}</b>:</p>
     {% for r in pair_rows %}
-    <div class="bookrow"><div class="t">{{ r.title }} <span class="s">&middot; {{ r.total }} shared</span></div>
+    <div class="bookrow"><div class="t"><span class="bdot" style="background:{{ r.hue }}"></span>{{ r.title }} <span class="s">&middot; {{ r.total }} shared</span></div>
       <div class="spark">{{ r.spark }}</div>
       {% if r.peak %}<div class="s">peak ch.{{ r.peak_ch }} '{{ r.peak_title }}' with {{ r.peak }} shared passages</div>{% endif %}
     </div>
@@ -207,6 +209,18 @@ button:hover{filter:brightness(1.1)}
   {% elif pa or pb %}
     <p class="note">Could not resolve both names. Check the character list above.</p>
   {% endif %}
+</section>
+
+<section class="wide" id="presence">
+  <h2>Character presence</h2>
+  <p class="sub">Mentions per chapter, left to right across all {{ '{:,}'.format(s.chapters) }}
+    chapters of the series. Entrances, absences and returns show up as gaps - you can see who
+    carries each stretch of the story.</p>
+  {% for r in presence %}
+  <div class="bookrow"><div class="t">{{ r.name }}
+      <span class="s">&middot; first appears {{ r.first }} &middot; {{ '{:,}'.format(r.total) }} chapter mentions</span></div>
+    <div class="spark" style="font-size:16px">{{ r.spark }}</div></div>
+  {% endfor %}
 </section>
 
 <section class="wide" id="arcs">
@@ -217,7 +231,7 @@ button:hover{filter:brightness(1.1)}
   <div class="try"><span class="lbl">Axis:</span>
     {% for a in axes %}<a href="/?axis={{ a }}#arcs"{% if a==axis %} style="border-color:var(--acc)"{% endif %}>{{ a }}</a>{% endfor %}</div>
   {% for b in arcs %}
-  <div class="bookrow"><div class="t">{{ b.title }}</div>
+  <div class="bookrow"><div class="t"><span class="bdot" style="background:{{ b.hue }}"></span>{{ b.title }}</div>
     <div class="spark">{{ b.spark }}</div>
     <div class="s">axis <b>{{ axis }}</b> &middot; mean {{ '%+.2f'|format(b.mean) }} &middot; peak {{ '%+.2f'|format(b.peak) }} at ch.{{ b.peak_ch }}</div>
   </div>
@@ -305,6 +319,48 @@ def _render(art, params: dict) -> str:
                 if len(idx) >= 5:
                     who_arc.append({"title": book, "spark": arc_mod.sparkline(tension[idx], width=64)})
 
+    # Presence timelines: mentions per chapter for the top characters, across the
+    # whole series in chapter order. Computed once per process and cached on the
+    # artefacts object, since it never changes between requests.
+    presence = getattr(art, "_presence_rows", None)
+    if presence is None:
+        # Chapter 0 is front matter (title pages, contents) - not narrative, so it
+        # is excluded: a surname in a title page must not read as an appearance.
+        chapter_keys: list[tuple[int, int]] = []
+        seen_ch: set[tuple[int, int]] = set()
+        for p in art.passages:
+            if p.chapter == 0:
+                continue
+            key = (p.book_index, p.chapter)
+            if key not in seen_ch:
+                seen_ch.add(key)
+                chapter_keys.append(key)
+        ch_index = {k: i for i, k in enumerate(chapter_keys)}
+        mentioned_all = art.mentions()
+        presence = []
+        for c in art.characters[:12]:
+            counts = np.zeros(len(chapter_keys))
+            for i, p in enumerate(art.passages):
+                if p.chapter != 0 and c.name in mentioned_all[i]:
+                    counts[ch_index[(p.book_index, p.chapter)]] += 1
+            if not counts.any():
+                continue
+            first_book, first_ch = chapter_keys[int(np.argmax(counts > 0))]
+            presence.append({
+                "name": c.name,
+                "total": int(counts.sum()),
+                "spark": arc_mod.sparkline(counts, width=84),
+                "first": f"book {first_book} ch.{first_ch}",
+            })
+        art._presence_rows = presence
+
+    # One stable hue per book, used as a badge wherever a book row appears, so the
+    # same book is visually linkable across sections.
+    hues = [210, 30, 130, 275, 0, 170, 48, 320, 95, 240]
+    book_hue = {
+        b: f"hsl({hues[i % len(hues)]},62%,55%)" for i, b in enumerate(art.books)
+    }
+
     pa = (params.get("a", [""])[0] or "").strip()
     pb = (params.get("b", [""])[0] or "").strip()
     pair_rows = []
@@ -328,6 +384,7 @@ def _render(art, params: dict) -> str:
             peak_ch = max(ordered, key=lambda c: chapters[c]) if total else 0
             pair_rows.append({
                 "title": book,
+                "hue": book_hue[book],
                 "total": total,
                 "spark": arc_mod.sparkline(counts, width=72) if total else "▁" * min(len(ordered), 72),
                 "peak": chapters.get(peak_ch, 0) if total else 0,
@@ -345,6 +402,7 @@ def _render(art, params: dict) -> str:
         peak_local = int(np.argmax(vals))
         arcs.append({
             "title": book,
+            "hue": book_hue[book],
             "spark": arc_mod.sparkline(vals, width=72),
             "mean": float(vals.mean()),
             "peak": float(vals.max()),
@@ -381,6 +439,7 @@ def _render(art, params: dict) -> str:
         who=who,
         ties=ties,
         who_arc=who_arc,
+        presence=presence,
         pa=pa,
         pb=pb,
         pair_rows=pair_rows,
